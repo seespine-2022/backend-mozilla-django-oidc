@@ -64,7 +64,11 @@ class OIDCAuthenticationCallbackView(View):
 
         return HttpResponseRedirect(self.success_url)
 
-    def get(self, request):
+    def get(
+        self,
+        request,
+        okta_config=None,
+    ):
         """Callback handler for OIDC authorization code flow"""
 
         if request.GET.get("error"):
@@ -119,6 +123,7 @@ class OIDCAuthenticationCallbackView(View):
                 "request": request,
                 "nonce": nonce,
                 "code_verifier": code_verifier,
+                "okta_config": okta_config,
             }
 
             self.user = auth.authenticate(**kwargs)
@@ -169,6 +174,7 @@ class OIDCAuthenticationRequestView(View):
 
         self.OIDC_OP_AUTH_ENDPOINT = self.get_settings("OIDC_OP_AUTHORIZATION_ENDPOINT")
         self.OIDC_RP_CLIENT_ID = self.get_settings("OIDC_RP_CLIENT_ID")
+        self.OIDC_RP_SCOPES = None
 
     @staticmethod
     def get_settings(attr, *args):
@@ -176,15 +182,22 @@ class OIDCAuthenticationRequestView(View):
 
     def get(self, request):
         """OIDC client authentication initialization HTTP endpoint"""
+
         state = get_random_string(self.get_settings("OIDC_STATE_SIZE", 32))
         redirect_field_name = self.get_settings("OIDC_REDIRECT_FIELD_NAME", "next")
         reverse_url = self.get_settings(
             "OIDC_AUTHENTICATION_CALLBACK_URL", "oidc_authentication_callback"
         )
 
+        scope = (
+            self.OIDC_RP_SCOPES
+            if self.OIDC_RP_SCOPES
+            else self.get_settings("OIDC_RP_SCOPES", "openid email")
+        )
+
         params = {
             "response_type": "code",
-            "scope": self.get_settings("OIDC_RP_SCOPES", "openid email"),
+            "scope": scope,
             "client_id": self.OIDC_RP_CLIENT_ID,
             "redirect_uri": absolutify(request, reverse(reverse_url)),
             "state": state,

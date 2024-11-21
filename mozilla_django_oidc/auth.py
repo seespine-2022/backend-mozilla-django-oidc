@@ -292,9 +292,20 @@ class OIDCAuthenticationBackend(ModelBackend):
         code = self.request.GET.get("code")
         nonce = kwargs.pop("nonce", None)
         code_verifier = kwargs.pop("code_verifier", None)
+        okta_config = kwargs.pop("okta_config", None)
 
         if not code or not state:
             return None
+
+        if okta_config:
+
+            okta_domain = okta_config.get("DOMAIN")
+
+            self.OIDC_OP_USER_ENDPOINT = f"https://{okta_domain}/oauth2/v1/userinfo"
+            self.OIDC_OP_JWKS_ENDPOINT = f"https://{okta_domain}/oauth2/v1/keys"
+            self.OIDC_OP_TOKEN_ENDPOINT = f"https://{okta_domain}/oauth2/v1/token"
+            self.OIDC_RP_CLIENT_ID = okta_config["CLIENT_ID"]
+            self.OIDC_RP_CLIENT_SECRET = okta_config["CLIENT_SECRET"]
 
         reverse_url = self.get_settings(
             "OIDC_AUTHENTICATION_CALLBACK_URL", "oidc_authentication_callback"
